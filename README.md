@@ -1,6 +1,6 @@
 # denpa-schedule-csv
 
-電波系の時間割変更ExcelをCSV化し、クラスごとのCSVに自動分割するためのPythonスクリプト集です。
+電波ポータルの時間割変更ExcelをCSV化し、クラスごとのCSVに自動分割するためのPythonスクリプト集です。
 
 ## できること
 
