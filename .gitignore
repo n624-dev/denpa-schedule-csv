@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.csv
+*.xlsx
+*_class_csvs/
+*_class_csvs.zip
