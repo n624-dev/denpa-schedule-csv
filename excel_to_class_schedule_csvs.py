@@ -71,7 +71,7 @@ class ConversionResult:
     classes_dir: Path
     summary_csv_path: Path
     manifest_path: Path
-    zip_path: Path
+    zip_path: Path | None
     sheet_name: str | None
     class_files: list[ClassCsvFile]
     warnings: list[str]
@@ -415,9 +415,11 @@ def split_csv_by_class(
     out_dir: Path | None = None,
     zip_path: Path | None = None,
     overwrite: bool = True,
-) -> tuple[Path, Path, list[list[str]]]:
+    create_zip: bool = True,
+) -> tuple[Path, Path | None, list[list[str]]]:
     out_dir = out_dir or (src.parent / f'{src.stem}_class_csvs')
-    zip_path = zip_path or (src.parent / f'{src.stem}_class_csvs.zip')
+    default_zip_path = src.parent / f'{src.stem}_class_csvs.zip'
+    resolved_zip_path = zip_path or default_zip_path
 
     with src.open('r', encoding='utf-8-sig', newline='') as f:
         reader = csv.DictReader(f)
@@ -479,15 +481,18 @@ def split_csv_by_class(
         writer.writerow(['クラス', '件数', 'ファイル名'])
         writer.writerows(summary)
 
-    if zip_path.exists():
-        if not overwrite:
-            raise FileExistsError(f'ZIPが既に存在します: {zip_path}')
-        zip_path.unlink()
-    with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
-        for file in sorted(out_dir.iterdir()):
-            zf.write(file, arcname=file.name)
+    if resolved_zip_path.exists() and (overwrite or create_zip):
+        if not overwrite and create_zip:
+            raise FileExistsError(f'ZIPが既に存在します: {resolved_zip_path}')
+        resolved_zip_path.unlink()
 
-    return out_dir, zip_path, summary
+    if create_zip:
+        with zipfile.ZipFile(resolved_zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+            for file in sorted(out_dir.iterdir()):
+                zf.write(file, arcname=file.name)
+        return out_dir, resolved_zip_path, summary
+
+    return out_dir, None, summary
 
 
 # =============================
@@ -634,6 +639,7 @@ def convert_to_class_csvs(
     strict_sheet: bool = True,
     default_year: int | None = None,
     overwrite: bool = True,
+    create_zip: bool = True,
 ) -> ConversionResult:
     """通知Botなど外部プログラムから安全に呼べる標準化変換API。"""
     path = validate_input_path(input_path)
@@ -645,16 +651,20 @@ def convert_to_class_csvs(
     classes_dir = out / 'classes'
     summary_csv_path = out / 'summary.csv'
     manifest_path = out / 'manifest.json'
-    zip_path = out / 'classes.zip'
+    expected_zip_path = out / 'classes.zip'
+    zip_path = expected_zip_path if create_zip else None
 
     if overwrite:
-        for file_path in (normalized_csv_path, summary_csv_path, manifest_path, zip_path):
+        for file_path in (normalized_csv_path, summary_csv_path, manifest_path, expected_zip_path):
             if file_path.exists():
                 file_path.unlink()
         if classes_dir.exists():
             shutil.rmtree(classes_dir)
     else:
-        existing = [p for p in (normalized_csv_path, summary_csv_path, manifest_path, zip_path, classes_dir) if p.exists()]
+        existing_targets = [normalized_csv_path, summary_csv_path, manifest_path, classes_dir]
+        if create_zip:
+            existing_targets.append(expected_zip_path)
+        existing = [p for p in existing_targets if p.exists()]
         if existing:
             raise FileExistsError(f'出力先に既存ファイルがあります: {", ".join(str(p) for p in existing)}')
 
@@ -681,11 +691,12 @@ def convert_to_class_csvs(
         for item in class_files:
             writer.writerow([item.class_name, item.rows, item.path.name])
 
-    with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
-        zf.write(normalized_csv_path, arcname=normalized_csv_path.name)
-        zf.write(summary_csv_path, arcname=summary_csv_path.name)
-        for item in class_files:
-            zf.write(item.path, arcname=f'classes/{item.path.name}')
+    if create_zip:
+        with zipfile.ZipFile(expected_zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+            zf.write(normalized_csv_path, arcname=normalized_csv_path.name)
+            zf.write(summary_csv_path, arcname=summary_csv_path.name)
+            for item in class_files:
+                zf.write(item.path, arcname=f'classes/{item.path.name}')
 
     warnings: list[str] = []
     if path.suffix.lower() == '.csv':
@@ -702,7 +713,7 @@ def convert_to_class_csvs(
         'normalized_csv': normalized_csv_path.name,
         'classes_dir': classes_dir.name,
         'summary_csv': summary_csv_path.name,
-        'zip_path': zip_path.name,
+        'zip_path': zip_path.name if zip_path is not None else None,
         'class_files': [
             {
                 'class_name': item.class_name,
@@ -735,7 +746,8 @@ def convert_to_class_csvs(
 def result_to_jsonable(result: ConversionResult) -> dict:
     data = asdict(result)
     for key in ['input_path', 'output_dir', 'normalized_csv_path', 'classes_dir', 'summary_csv_path', 'manifest_path', 'zip_path']:
-        data[key] = str(data[key])
+        if data[key] is not None:
+            data[key] = str(data[key])
     data['class_files'] = [
         {
             'class_name': item.class_name,
@@ -751,7 +763,10 @@ def print_conversion_result(result: ConversionResult) -> None:
     print(f'標準CSV: {result.normalized_csv_path}')
     print(f'クラス別CSVフォルダ: {result.classes_dir}')
     print(f'サマリーCSV: {result.summary_csv_path}')
-    print(f'ZIP: {result.zip_path}')
+    if result.zip_path is not None:
+        print(f'ZIP: {result.zip_path}')
+    else:
+        print('ZIP: 作成しませんでした')
     print(f'manifest: {result.manifest_path}')
     if result.sheet_name:
         print(f'読み取りシート: {result.sheet_name}')
@@ -787,6 +802,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action=argparse.BooleanOptionalAction,
         default=True,
         help='既存出力を上書きする。デフォルトは有効',
+    )
+    parser.add_argument(
+        '--zip',
+        dest='create_zip',
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help='ZIPを作成する。デフォルトは有効。無効化する場合は --no-zip',
     )
     parser.add_argument(
         '--legacy',
@@ -827,12 +849,16 @@ def main() -> None:
             out_dir=out_dir,
             zip_path=zip_path,
             overwrite=args.overwrite,
+            create_zip=args.create_zip,
         )
 
         print('')
         print(f'{len(summary)}個のクラス別CSVを作成しました。')
         print(f'出力フォルダ: {class_dir}')
-        print(f'ZIP: {zip_file}')
+        if zip_file is not None:
+            print(f'ZIP: {zip_file}')
+        else:
+            print('ZIP: 作成しませんでした')
         print('')
         print('クラス, 件数, ファイル名')
         for class_name, count, filename in summary:
@@ -845,6 +871,7 @@ def main() -> None:
         strict_sheet=args.strict_sheet,
         default_year=args.default_year,
         overwrite=args.overwrite,
+        create_zip=args.create_zip,
     )
 
     if args.json:
