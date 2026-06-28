@@ -4,12 +4,12 @@
 
 A Python script collection for converting timetable change Excel files into standardized CSV files and class-specific CSV files.
 
-It is designed so that external programs, such as notification bots, can safely consume generated outputs including standardized CSV files, class-specific CSV files, and `manifest.json`.
+It is designed so that external programs can safely consume generated outputs including standardized CSV files, class-specific CSV files, and `manifest.json`.
 
 ## Features
 
 - Convert `.xlsx` timetable change sheets to CSV
-- Generate standardized CSV files for notification bots
+- Generate standardized CSV files for external integrations
 - Split standardized CSV files into class-specific CSV files
 - Generate `manifest.json` for machine-readable output metadata
 - Specify the output directory
@@ -87,7 +87,7 @@ work/out/
 └─ manifest.json
 ```
 
-Notification bots can read `class_files` in `manifest.json` instead of relying on the ZIP file, so imports can work regardless of whether ZIP output is enabled.
+Importing programs can read `class_files` in `manifest.json` instead of relying on the ZIP file, so imports can work regardless of whether ZIP output is enabled.
 
 ### strict-sheet
 
@@ -104,7 +104,7 @@ To fall back to the first sheet when the target sheet is not found, use:
 python excel_to_class_schedule_csvs.py henkou.xlsx --output-dir work/out --no-strict-sheet
 ```
 
-For notification bot usage, keep `--strict-sheet` enabled.
+For external integrations, keep `--strict-sheet` enabled.
 
 ### Dates without a year
 
@@ -141,7 +141,7 @@ change_date,class_name,period,before_subject,after_subject,teacher,room,note,raw
 | `room` | Classroom or location |
 | `note` | Notes |
 | `raw_text` | Concatenated non-empty cells from the original row |
-| `canonical_text` | Normalized text used by notification bots to generate a `change_id` |
+| `canonical_text` | Normalized text used by external programs to generate a `change_id` |
 
 Columns such as `period` and `before_subject` are filled when they can be inferred from the source Excel headers.
 Even when these fields cannot be extracted, `raw_text` and `canonical_text` still contain the whole row information.
@@ -182,7 +182,7 @@ When `--no-zip` is used, `zip_path` becomes `null`.
 }
 ```
 
-Notification bots can read `class_files` in `manifest.json` to safely determine which CSV files should be imported.
+Consumers can read `class_files` in `manifest.json` to safely determine which CSV files should be imported.
 
 ## Python API usage
 
@@ -208,7 +208,7 @@ for item in result.class_files:
     print(item.class_name, item.rows, item.path)
 ```
 
-For notification bots, create a dedicated working directory for each attachment and pass its `output/` directory as `output_dir`.
+For external program usage, create a dedicated working directory for each attachment and pass its `output/` directory as `output_dir`.
 
 Example:
 
