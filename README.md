@@ -4,12 +4,12 @@
 
 電波ポータルの時間割変更ExcelをCSV化し、クラスごとのCSVに自動分割するためのPythonスクリプト集です。
 
-通知Botなど外部プログラムから安全に使えるように、標準化CSV・クラス別CSV・`manifest.json` を指定ディレクトリへ出力できます。
+外部プログラムから安全に使えるように、標準化CSV・クラス別CSV・`manifest.json` を指定ディレクトリへ出力できます。
 
 ## できること
 
 - Excel（`.xlsx`）の「時間割変更」シートをCSVに変換
-- 通知Bot向けの標準化CSVを作成
+- 外部連携向けの標準化CSVを作成
 - 標準化済みCSVをクラス別CSVに分割
 - `manifest.json` で生成結果を機械的に取得
 - 出力先ディレクトリを指定可能
@@ -87,7 +87,7 @@ work/out/
 └─ manifest.json
 ```
 
-通知Bot側は、ZIPではなく `manifest.json` の `class_files` を読むことで、ZIPの有無に関係なくCSVを取り込めます。
+利用側は、ZIPではなく `manifest.json` の `class_files` を読むことで、ZIPの有無に関係なくCSVを取り込めます。
 
 ### strict-sheet
 
@@ -104,7 +104,7 @@ python excel_to_class_schedule_csvs.py henkou.xlsx --output-dir work/out --stric
 python excel_to_class_schedule_csvs.py henkou.xlsx --output-dir work/out --no-strict-sheet
 ```
 
-通知Bot用途では `--strict-sheet` のまま使ってください。
+外部連携用途では `--strict-sheet` のまま使ってください。
 
 ### 年なし日付
 
@@ -141,7 +141,7 @@ change_date,class_name,period,before_subject,after_subject,teacher,room,note,raw
 | `room` | 教室・場所 |
 | `note` | 備考 |
 | `raw_text` | 元行の非空セルを連結した文字列 |
-| `canonical_text` | 通知Botで `change_id` を作るための正規化済み文字列 |
+| `canonical_text` | 外部プログラムで `change_id` を作るための正規化済み文字列 |
 
 `period` や `before_subject` などは、元Excelの列名から推定できる範囲で埋めます。  
 抽出できない場合でも、`raw_text` と `canonical_text` には行全体の情報が入ります。
@@ -182,7 +182,7 @@ change_date,class_name,period,before_subject,after_subject,teacher,room,note,raw
 }
 ```
 
-通知Bot側では、`manifest.json` の `class_files` を読めば、取り込むべきCSVを安全に判断できます。
+利用側では、`manifest.json` の `class_files` を読めば、取り込むべきCSVを安全に判断できます。
 
 ## Python APIとして使う
 
@@ -208,7 +208,7 @@ for item in result.class_files:
     print(item.class_name, item.rows, item.path)
 ```
 
-通知Botでは、添付ファイルごとに専用作業ディレクトリを作り、その中の `output/` を `output_dir` に指定してください。
+外部プログラムで使う場合は、添付ファイルごとに専用作業ディレクトリを作り、その中の `output/` を `output_dir` に指定してください。
 
 例:
 
