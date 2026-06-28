@@ -13,6 +13,7 @@
 - 標準化済みCSVをクラス別CSVに分割
 - `manifest.json` で生成結果を機械的に取得
 - 出力先ディレクトリを指定可能
+- ZIP出力を任意で無効化可能
 - Windowsのドラッグ＆ドロップ実行に対応
 - `1,2` のような複数クラス指定に対応
 - `1～3` のような学年範囲に対応
@@ -58,6 +59,35 @@ work/out/
 ├─ classes.zip
 └─ manifest.json
 ```
+
+### ZIP出力
+
+デフォルトでは `classes.zip` を作成します。
+
+```bash
+python excel_to_class_schedule_csvs.py henkou.xlsx --output-dir work/out --zip
+```
+
+ZIPが不要な場合は `--no-zip` を指定します。
+
+```bash
+python excel_to_class_schedule_csvs.py henkou.xlsx --output-dir work/out --no-zip
+```
+
+`--no-zip` を指定した場合、`classes.zip` は作成されず、`manifest.json` の `zip_path` は `null` になります。
+
+```text
+work/out/
+├─ normalized.csv
+├─ classes/
+│  ├─ 1_1.csv
+│  ├─ 3_IT.csv
+│  └─ 5_CN.csv
+├─ summary.csv
+└─ manifest.json
+```
+
+通知Bot側は、ZIPではなく `manifest.json` の `class_files` を読むことで、ZIPの有無に関係なくCSVを取り込めます。
 
 ### strict-sheet
 
@@ -144,6 +174,14 @@ change_date,class_name,period,before_subject,after_subject,teacher,room,note,raw
 }
 ```
 
+`--no-zip` を指定した場合は、`zip_path` が `null` になります。
+
+```json
+{
+  "zip_path": null
+}
+```
+
 通知Bot側では、`manifest.json` の `class_files` を読めば、取り込むべきCSVを安全に判断できます。
 
 ## Python APIとして使う
@@ -158,11 +196,13 @@ result = convert_to_class_csvs(
     strict_sheet=True,
     default_year=2026,
     overwrite=True,
+    create_zip=False,
 )
 
 print(result.normalized_csv_path)
 print(result.classes_dir)
 print(result.manifest_path)
+print(result.zip_path)  # create_zip=False の場合は None
 
 for item in result.class_files:
     print(item.class_name, item.rows, item.path)
@@ -185,6 +225,8 @@ downloads/
       └─ manifest.json
 ```
 
+`create_zip=False` の場合、`classes.zip` は作成されません。
+
 ## 旧形式で出力する
 
 以前の通常CSVと `*_class_csvs/` 形式が必要な場合は `--legacy` を使えます。
@@ -205,6 +247,12 @@ henkou_class_csvs.zip
 
 ```bash
 python excel_to_class_schedule_csvs.py henkou.xlsx --legacy --output-dir work/out
+```
+
+旧形式でも `--no-zip` を指定できます。
+
+```bash
+python excel_to_class_schedule_csvs.py henkou.xlsx --legacy --no-zip
 ```
 
 ## 入力CSVに必要な列
