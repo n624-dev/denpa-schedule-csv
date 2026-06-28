@@ -4,15 +4,16 @@
 
 電波ポータルの時間割変更ExcelをCSV化し、クラスごとのCSVに自動分割するためのPythonスクリプト集です。
 
-通知Botなど外部プログラムから安全に使えるように、標準化CSV・クラス別CSV・`manifest.json` を指定ディレクトリへ出力できます。
+外部プログラムから安全に使えるように、標準化CSV・クラス別CSV・`manifest.json` を指定ディレクトリへ出力できます。
 
 ## できること
 
 - Excel（`.xlsx`）の「時間割変更」シートをCSVに変換
-- 通知Bot向けの標準化CSVを作成
+- 外部連携向けの標準化CSVを作成
 - 標準化済みCSVをクラス別CSVに分割
 - `manifest.json` で生成結果を機械的に取得
 - 出力先ディレクトリを指定可能
+- ZIP出力を任意で無効化可能
 - Windowsのドラッグ＆ドロップ実行に対応
 - `1,2` のような複数クラス指定に対応
 - `1～3` のような学年範囲に対応
@@ -59,6 +60,35 @@ work/out/
 └─ manifest.json
 ```
 
+### ZIP出力
+
+デフォルトでは `classes.zip` を作成します。
+
+```bash
+python excel_to_class_schedule_csvs.py henkou.xlsx --output-dir work/out --zip
+```
+
+ZIPが不要な場合は `--no-zip` を指定します。
+
+```bash
+python excel_to_class_schedule_csvs.py henkou.xlsx --output-dir work/out --no-zip
+```
+
+`--no-zip` を指定した場合、`classes.zip` は作成されず、`manifest.json` の `zip_path` は `null` になります。
+
+```text
+work/out/
+├─ normalized.csv
+├─ classes/
+│  ├─ 1_1.csv
+│  ├─ 3_IT.csv
+│  └─ 5_CN.csv
+├─ summary.csv
+└─ manifest.json
+```
+
+利用側は、ZIPではなく `manifest.json` の `class_files` を読むことで、ZIPの有無に関係なくCSVを取り込めます。
+
 ### strict-sheet
 
 デフォルトでは `--strict-sheet` が有効です。  
@@ -74,7 +104,7 @@ python excel_to_class_schedule_csvs.py henkou.xlsx --output-dir work/out --stric
 python excel_to_class_schedule_csvs.py henkou.xlsx --output-dir work/out --no-strict-sheet
 ```
 
-通知Bot用途では `--strict-sheet` のまま使ってください。
+外部連携用途では `--strict-sheet` のまま使ってください。
 
 ### 年なし日付
 
@@ -111,7 +141,7 @@ change_date,class_name,period,before_subject,after_subject,teacher,room,note,raw
 | `room` | 教室・場所 |
 | `note` | 備考 |
 | `raw_text` | 元行の非空セルを連結した文字列 |
-| `canonical_text` | 通知Botで `change_id` を作るための正規化済み文字列 |
+| `canonical_text` | 外部プログラムで `change_id` を作るための正規化済み文字列 |
 
 `period` や `before_subject` などは、元Excelの列名から推定できる範囲で埋めます。  
 抽出できない場合でも、`raw_text` と `canonical_text` には行全体の情報が入ります。
@@ -144,7 +174,15 @@ change_date,class_name,period,before_subject,after_subject,teacher,room,note,raw
 }
 ```
 
-通知Bot側では、`manifest.json` の `class_files` を読めば、取り込むべきCSVを安全に判断できます。
+`--no-zip` を指定した場合は、`zip_path` が `null` になります。
+
+```json
+{
+  "zip_path": null
+}
+```
+
+利用側では、`manifest.json` の `class_files` を読めば、取り込むべきCSVを安全に判断できます。
 
 ## Python APIとして使う
 
@@ -158,17 +196,19 @@ result = convert_to_class_csvs(
     strict_sheet=True,
     default_year=2026,
     overwrite=True,
+    create_zip=False,
 )
 
 print(result.normalized_csv_path)
 print(result.classes_dir)
 print(result.manifest_path)
+print(result.zip_path)  # create_zip=False の場合は None
 
 for item in result.class_files:
     print(item.class_name, item.rows, item.path)
 ```
 
-通知Botでは、添付ファイルごとに専用作業ディレクトリを作り、その中の `output/` を `output_dir` に指定してください。
+外部プログラムで使う場合は、添付ファイルごとに専用作業ディレクトリを作り、その中の `output/` を `output_dir` に指定してください。
 
 例:
 
@@ -184,6 +224,8 @@ downloads/
       ├─ classes.zip
       └─ manifest.json
 ```
+
+`create_zip=False` の場合、`classes.zip` は作成されません。
 
 ## 旧形式で出力する
 
@@ -205,6 +247,12 @@ henkou_class_csvs.zip
 
 ```bash
 python excel_to_class_schedule_csvs.py henkou.xlsx --legacy --output-dir work/out
+```
+
+旧形式でも `--no-zip` を指定できます。
+
+```bash
+python excel_to_class_schedule_csvs.py henkou.xlsx --legacy --no-zip
 ```
 
 ## 入力CSVに必要な列

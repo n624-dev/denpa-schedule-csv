@@ -4,15 +4,16 @@
 
 A Python script collection for converting timetable change Excel files into standardized CSV files and class-specific CSV files.
 
-It is designed so that external programs, such as notification bots, can safely consume generated outputs including standardized CSV files, class-specific CSV files, and `manifest.json`.
+It is designed so that external programs can safely consume generated outputs including standardized CSV files, class-specific CSV files, and `manifest.json`.
 
 ## Features
 
 - Convert `.xlsx` timetable change sheets to CSV
-- Generate standardized CSV files for notification bots
+- Generate standardized CSV files for external integrations
 - Split standardized CSV files into class-specific CSV files
 - Generate `manifest.json` for machine-readable output metadata
 - Specify the output directory
+- Optionally disable ZIP output
 - Support drag-and-drop execution on Windows
 - Support multiple class values such as `1,2`
 - Support grade ranges such as `1～3`
@@ -59,6 +60,35 @@ work/out/
 └─ manifest.json
 ```
 
+### ZIP output
+
+By default, `classes.zip` is created.
+
+```bash
+python excel_to_class_schedule_csvs.py henkou.xlsx --output-dir work/out --zip
+```
+
+If ZIP output is not needed, pass `--no-zip`.
+
+```bash
+python excel_to_class_schedule_csvs.py henkou.xlsx --output-dir work/out --no-zip
+```
+
+When `--no-zip` is used, `classes.zip` is not created and `zip_path` in `manifest.json` is set to `null`.
+
+```text
+work/out/
+├─ normalized.csv
+├─ classes/
+│  ├─ 1_1.csv
+│  ├─ 3_IT.csv
+│  └─ 5_CN.csv
+├─ summary.csv
+└─ manifest.json
+```
+
+Importing programs can read `class_files` in `manifest.json` instead of relying on the ZIP file, so imports can work regardless of whether ZIP output is enabled.
+
 ### strict-sheet
 
 By default, `--strict-sheet` is enabled.
@@ -74,7 +104,7 @@ To fall back to the first sheet when the target sheet is not found, use:
 python excel_to_class_schedule_csvs.py henkou.xlsx --output-dir work/out --no-strict-sheet
 ```
 
-For notification bot usage, keep `--strict-sheet` enabled.
+For external integrations, keep `--strict-sheet` enabled.
 
 ### Dates without a year
 
@@ -111,7 +141,7 @@ change_date,class_name,period,before_subject,after_subject,teacher,room,note,raw
 | `room` | Classroom or location |
 | `note` | Notes |
 | `raw_text` | Concatenated non-empty cells from the original row |
-| `canonical_text` | Normalized text used by notification bots to generate a `change_id` |
+| `canonical_text` | Normalized text used by external programs to generate a `change_id` |
 
 Columns such as `period` and `before_subject` are filled when they can be inferred from the source Excel headers.
 Even when these fields cannot be extracted, `raw_text` and `canonical_text` still contain the whole row information.
@@ -144,7 +174,15 @@ Example:
 }
 ```
 
-Notification bots can read `class_files` in `manifest.json` to safely determine which CSV files should be imported.
+When `--no-zip` is used, `zip_path` becomes `null`.
+
+```json
+{
+  "zip_path": null
+}
+```
+
+Consumers can read `class_files` in `manifest.json` to safely determine which CSV files should be imported.
 
 ## Python API usage
 
@@ -158,17 +196,19 @@ result = convert_to_class_csvs(
     strict_sheet=True,
     default_year=2026,
     overwrite=True,
+    create_zip=False,
 )
 
 print(result.normalized_csv_path)
 print(result.classes_dir)
 print(result.manifest_path)
+print(result.zip_path)  # None when create_zip=False
 
 for item in result.class_files:
     print(item.class_name, item.rows, item.path)
 ```
 
-For notification bots, create a dedicated working directory for each attachment and pass its `output/` directory as `output_dir`.
+For external program usage, create a dedicated working directory for each attachment and pass its `output/` directory as `output_dir`.
 
 Example:
 
@@ -184,6 +224,8 @@ downloads/
       ├─ classes.zip
       └─ manifest.json
 ```
+
+When `create_zip=False` is used, `classes.zip` is not created.
 
 ## Legacy output
 
@@ -205,6 +247,12 @@ henkou_class_csvs.zip
 
 ```bash
 python excel_to_class_schedule_csvs.py henkou.xlsx --legacy --output-dir work/out
+```
+
+`--no-zip` can also be used with legacy output.
+
+```bash
+python excel_to_class_schedule_csvs.py henkou.xlsx --legacy --no-zip
 ```
 
 ## Required input CSV columns
