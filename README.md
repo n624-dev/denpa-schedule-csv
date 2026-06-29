@@ -146,6 +146,10 @@ change_date,class_name,period,before_subject,after_subject,teacher,room,note,raw
 `period` や `before_subject` などは、元Excelの列名から推定できる範囲で埋めます。  
 抽出できない場合でも、`raw_text` と `canonical_text` には行全体の情報が入ります。
 
+`変更内容` と `科目(担当教員)` を持つ形式では、`変更内容` を `note` に保存します。
+休講科目は `before_subject`、補講・変更後の科目は `after_subject` に保存するため、
+外部プログラムは存在しない変更前後を推測せずに表示できます。
+
 ## manifest.json
 
 `manifest.json` には生成結果の一覧が入ります。

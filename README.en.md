@@ -146,6 +146,10 @@ change_date,class_name,period,before_subject,after_subject,teacher,room,note,raw
 Columns such as `period` and `before_subject` are filled when they can be inferred from the source Excel headers.
 Even when these fields cannot be extracted, `raw_text` and `canonical_text` still contain the whole row information.
 
+For source files with `変更内容` and `科目(担当教員)` columns, the change type is stored in `note`.
+Cancelled subjects are stored in `before_subject`; makeup or changed subjects are stored in
+`after_subject`, allowing consumers to render the source facts without inventing a before/after pair.
+
 ## manifest.json
 
 `manifest.json` contains a list of generated outputs.

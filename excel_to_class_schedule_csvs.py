@@ -526,6 +526,27 @@ def normalize_period(value: object) -> str:
     return normalize_number_text(text)
 
 
+def apply_change_content_fallback(
+    row: dict[str, str],
+    before_subject: str,
+    after_subject: str,
+    note: str,
+) -> tuple[str, str, str]:
+    """Map 変更内容/科目(担当教員) without inventing an arrow pair."""
+    change_content = find_value(row, ["変更内容", "変更種別", "種別"])
+    subject_with_teacher = find_value(
+        row,
+        ["科目(担当教員)", "科目（担当教員）", "科目・担当教員", "科目"],
+    )
+    if change_content and not note:
+        note = change_content
+    if not subject_with_teacher or before_subject or after_subject:
+        return before_subject, after_subject, note
+    if normalize_token(change_content) == "休講":
+        return subject_with_teacher, "", note
+    return "", subject_with_teacher, note
+
+
 def build_normalized_records(
     rows: list[dict[str, str]],
     headers: list[str],
@@ -550,6 +571,9 @@ def build_normalized_records(
         teacher = find_value(row, ['教員', '担当', '担当教員', '担任', '教官'])
         room = find_value(row, ['教室', '場所'])
         note = find_value(row, ['備考', '連絡', 'メモ', 'その他'])
+        before_subject, after_subject, note = apply_change_content_fallback(
+            row, before_subject, after_subject, note
+        )
 
         for year in years:
             if normalize_token(class_cell) == '全':
